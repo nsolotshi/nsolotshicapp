@@ -744,14 +744,10 @@
                 <i class="fas fa-gift"></i> Bénéficier de notre prix promotionnel: 12.000FC au lieu de 60.000FC par soumission.
             </div>
             
-            <div class="install-instructions">
-                <h3><i class="fas fa-mobile-alt"></i> Installer l'application</h3>
-                <p>Pour une meilleure expérience, installez cette application sur votre téléphone :</p>
-                <ul>
-                    <li><strong>Android:</strong> Menu du navigateur (⋮) → "Installer l'application"</li>
-                    <li><strong>iOS:</strong> Bouton de partage (⎗) → "Sur l'écran d'accueil"</li>
-                </ul>
-            </div>
+            <!-- Ajouter ce bouton dans votre interface -->
+            <button id="installButton" class="install-btn" style="display: none;">
+                <i class="fas fa-download"></i> Installer l'application
+            </button>
             
             <div class="contact-links">
                 <a href="mailto:nsolotshi3@gmail.com?subject=Demande%20d'informations&body=Bonjour,%0AJe%20souhaite%20avoir%20des%20renseignements." class="contact-link email">
@@ -1826,6 +1822,114 @@
 </div>
 
 <script>
+// ==================== FONCTIONNALITÉS PWA ====================
+const installButton = document.getElementById('installButton');
+
+// Gestionnaire d'événement pour beforeinstallprompt
+window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('beforeinstallprompt event fired');
+    
+    // Empêcher le mini-infobar d'apparaître sur mobile
+    e.preventDefault();
+    
+    // Stocker l'événement pour qu'il puisse être déclenché plus tard
+    deferredPrompt = e;
+    
+    // Afficher le bouton d'installation
+    if (installButton) {
+        installButton.style.display = 'block';
+        installButton.addEventListener('click', installApp);
+    }
+    
+    // Optionnel: Log pour le débogage
+    console.log('PWA installation available');
+});
+
+// Gestionnaire d'événement pour appinstalled
+window.addEventListener('appinstalled', (evt) => {
+    console.log('App was successfully installed');
+    
+    // Masquer le bouton d'installation
+    if (installButton) {
+        installButton.style.display = 'none';
+    }
+    
+    // Réinitialiser deferredPrompt
+    deferredPrompt = null;
+});
+
+// Fonction pour déclencher l'installation
+function installApp() {
+    if (!deferredPrompt) {
+        console.log('No deferred prompt available');
+        showInstallInstructions();
+        return;
+    }
+    
+    // Afficher l'invite d'installation
+    deferredPrompt.prompt();
+    
+    // Attendre que l'utilisateur réponde à l'invite
+    deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+            console.log('User accepted the install prompt');
+        } else {
+            console.log('User dismissed the install prompt');
+        }
+        
+        // Réinitialiser deferredPrompt
+        deferredPrompt = null;
+        
+        // Masquer le bouton d'installation
+        if (installButton) {
+            installButton.style.display = 'none';
+        }
+    });
+}
+
+// Fonction pour vérifier si l'app est déjà installée
+function checkIfAppIsInstalled() {
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+        console.log('App is running in standalone mode');
+        if (installButton) {
+            installButton.style.display = 'none';
+        }
+        return true;
+    }
+    
+    // Vérification pour iOS
+    if (window.navigator.standalone === true) {
+        console.log('App is running in iOS standalone mode');
+        if (installButton) {
+            installButton.style.display = 'none';
+        }
+        return true;
+    }
+    
+    return false;
+}
+
+// Fonction pour afficher les instructions d'installation manuelle
+function showInstallInstructions() {
+    alert("Pour installer cette application:\n\nAndroid: Ouvrez le menu du navigateur (⋮) et sélectionnez 'Installer l'application' ou 'Ajouter à l'écran d'accueil'\n\niOS: Utilisez le bouton de partage (⎗) et sélectionnez 'Sur l'écran d'accueil'");
+}
+
+// Vérifier au chargement si l'app est déjà installée
+window.addEventListener('load', () => {
+    checkIfAppIsInstalled();
+    
+    // Vérifier également le service worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js')
+            .then((registration) => {
+                console.log('SW registered: ', registration);
+            })
+            .catch((registrationError) => {
+                console.log('SW registration failed: ', registrationError);
+            });
+    }
+});
+    
 // ==================== CONFIGURATION ====================
 const LYGS_API_KEY = "lygosapp-d8883309-1c81-4448-a847-98088df32121";
 const PAYMENT_AMOUNT = 10000;
@@ -3450,3 +3554,4 @@ document.addEventListener('DOMContentLoaded', function() {
 </body>
 
 </html>
+

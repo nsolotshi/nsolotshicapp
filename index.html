@@ -1821,11 +1821,139 @@
 </div>
 
 <script>
-// ==================== FONCTIONNALITÉS PWA ====================
-const installButton = document.getElementById('installButton');
+// ==================== AMÉLIORATIONS PWA ====================
 
-// Gestionnaire d'événement pour beforeinstallprompt
-window.addEventListener('beforeinstallprompt', (e) => {
+// Vérifier si le navigateur supporte les PWA
+function checkPWACompatibility() {
+  return ('serviceWorker' in navigator) && ('BeforeInstallPromptEvent' in window);
+}
+
+// Enregistrer le Service Worker
+async function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    try {
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      console.log('SW registered: ', registration);
+      
+      // Vérifier s'il y a une mise à jour en attente
+      if (registration.waiting) {
+        console.log('New service worker waiting');
+        // Vous pourriez afficher un message à l'utilisateur ici
+      }
+      
+      // Écouter les mises à jour
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        console.log('New service worker installing');
+        
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed') {
+            console.log('New service worker installed');
+            // Vous pourriez afficher un message à l'utilisateur ici
+          }
+        });
+      });
+      
+      return registration;
+    } catch (error) {
+      console.error('SW registration failed: ', error);
+      return null;
+    }
+  }
+  return null;
+}
+
+// Vérifier si l'app est déjà installée
+function checkIfAppIsInstalled() {
+  if (window.matchMedia('(display-mode: standalone)').matches) {
+    console.log('App is running in standalone mode');
+    if (installButton) {
+      installButton.style.display = 'none';
+    }
+    return true;
+  }
+  
+  // Vérification pour iOS
+  if (window.navigator.standalone === true) {
+    console.log('App is running in iOS standalone mode');
+    if (installButton) {
+      installButton.style.display = 'none';
+    }
+    return true;
+  }
+  
+  return false;
+}
+
+// Fonction pour déclencher l'installation
+function installApp() {
+  if (!deferredPrompt) {
+    console.log('No deferred prompt available');
+    showInstallInstructions();
+    return;
+  }
+  
+  // Afficher l'invite d'installation
+  deferredPrompt.prompt();
+  
+  // Attendre que l'utilisateur réponde à l'invite
+  deferredPrompt.userChoice.then((choiceResult) => {
+    if (choiceResult.outcome === 'accepted') {
+      console.log('User accepted the install prompt');
+      // Cacher le bouton d'installation après acceptation
+      if (installButton) {
+        installButton.style.display = 'none';
+      }
+    } else {
+      console.log('User dismissed the install prompt');
+    }
+    
+    // Réinitialiser deferredPrompt
+    deferredPrompt = null;
+  });
+}
+
+// Fonction pour afficher les instructions d'installation manuelle
+function showInstallInstructions() {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const isAndroid = /Android/.test(navigator.userAgent);
+  
+  if (isIOS) {
+    alert("Pour installer cette application sur iOS:\n\n1. Ouvrez Safari\n2. Appuyez sur le bouton de partage (⎗)\n3. Faites défiler vers le bas et sélectionnez 'Sur l'écran d'accueil'\n4. Appuyez sur 'Ajouter'");
+  } else if (isAndroid) {
+    alert("Pour installer cette application sur Android:\n\n1. Ouvrez le menu du navigateur (⋮)\n2. Sélectionnez 'Installer l'application' ou 'Ajouter à l'écran d'accueil'\n3. Confirmez l'installation");
+  } else {
+    alert("Pour installer cette application:\n\nAndroid: Ouvrez le menu du navigateur (⋮) et sélectionnez 'Installer l'application' ou 'Ajouter à l'écran d'accueil'\n\niOS: Utilisez le bouton de partage (⎗) et sélectionnez 'Sur l'écran d'accueil'");
+  }
+}
+
+// Mettre à jour l'initialisation de l'application
+function initializeApplication() {
+  // ... code existant ...
+  
+  // Initialiser PWA
+  initializePWA();
+  
+  // ... reste du code existant ...
+}
+
+// Mettre à jour la fonction initializePWA
+function initializePWA() {
+  if (!checkPWACompatibility()) {
+    console.log('PWA features not supported in this browser');
+    return;
+  }
+  
+  // Enregistrer le Service Worker
+  registerServiceWorker();
+  
+  // Vérifier si l'app est déjà installée
+  checkIfAppIsInstalled();
+  
+  // Gérer l'installation de l'application
+  const installButton = document.getElementById('installButton');
+  
+  window.addEventListener('beforeinstallprompt', (e) => {
     console.log('beforeinstallprompt event fired');
     
     // Empêcher le mini-infobar d'apparaître sur mobile
@@ -1836,99 +1964,25 @@ window.addEventListener('beforeinstallprompt', (e) => {
     
     // Afficher le bouton d'installation
     if (installButton) {
-        installButton.style.display = 'block';
-        installButton.addEventListener('click', installApp);
+      installButton.style.display = 'block';
+      installButton.addEventListener('click', installApp);
     }
     
-    // Optionnel: Log pour le débogage
     console.log('PWA installation available');
-});
+  });
 
-// Gestionnaire d'événement pour appinstalled
-window.addEventListener('appinstalled', (evt) => {
+  window.addEventListener('appinstalled', () => {
     console.log('App was successfully installed');
     
     // Masquer le bouton d'installation
     if (installButton) {
-        installButton.style.display = 'none';
+      installButton.style.display = 'none';
     }
     
     // Réinitialiser deferredPrompt
     deferredPrompt = null;
-});
-
-// Fonction pour déclencher l'installation
-function installApp() {
-    if (!deferredPrompt) {
-        console.log('No deferred prompt available');
-        showInstallInstructions();
-        return;
-    }
-    
-    // Afficher l'invite d'installation
-    deferredPrompt.prompt();
-    
-    // Attendre que l'utilisateur réponde à l'invite
-    deferredPrompt.userChoice.then((choiceResult) => {
-        if (choiceResult.outcome === 'accepted') {
-            console.log('User accepted the install prompt');
-        } else {
-            console.log('User dismissed the install prompt');
-        }
-        
-        // Réinitialiser deferredPrompt
-        deferredPrompt = null;
-        
-        // Masquer le bouton d'installation
-        if (installButton) {
-            installButton.style.display = 'none';
-        }
-    });
+  });
 }
-
-// Fonction pour vérifier si l'app est déjà installée
-function checkIfAppIsInstalled() {
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-        console.log('App is running in standalone mode');
-        if (installButton) {
-            installButton.style.display = 'none';
-        }
-        return true;
-    }
-    
-    // Vérification pour iOS
-    if (window.navigator.standalone === true) {
-        console.log('App is running in iOS standalone mode');
-        if (installButton) {
-            installButton.style.display = 'none';
-        }
-        return true;
-    }
-    
-    return false;
-}
-
-// Fonction pour afficher les instructions d'installation manuelle
-function showInstallInstructions() {
-    alert("Pour installer cette application:\n\nAndroid: Ouvrez le menu du navigateur (⋮) et sélectionnez 'Installer l'application' ou 'Ajouter à l'écran d'accueil'\n\niOS: Utilisez le bouton de partage (⎗) et sélectionnez 'Sur l'écran d'accueil'");
-}
-
-// Vérifier au chargement si l'app est déjà installée
-window.addEventListener('load', () => {
-    checkIfAppIsInstalled();
-    
-    // Vérifier également le service worker
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js')
-            .then((registration) => {
-                console.log('SW registered: ', registration);
-            })
-            .catch((registrationError) => {
-                console.log('SW registration failed: ', registrationError);
-            });
-    }
-});
-
 // ==================== AUTRES FONCTIONS EXISTANTES ====================
 // (Vos autres fonctions JavaScript restent ici)
 
@@ -3554,4 +3608,5 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 </body>
 </html>
+
 
